@@ -1,146 +1,286 @@
-"""Core JSON comparison logic using deepdiff."""
+"""
+Core JSON comparison module.
 
-import json
-import importlib.resources
-from pathlib import Path
-from typing import Any, Union, Dict, List
+Provides the main comparison logic using deepdiff for deep comparison
+of nested JSON structures.
+"""
 
-from deepdiff import DeepDiff
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Union
+from enum import Enum
 
-from .exceptions import FileReadError, InvalidJsonError, ComparisonError
-from . import DiffResult
+try:
+    from deepdiff import DeepDiff
+    from deepdiff.model import DiffLevel
+    DEEPDIFF_AVAILABLE = True
+except ImportError:
+    DEEPDIFF_AVAILABLE = False
+
+from .exceptions import ComparisonError
 
 
-def load_json(source: Union[str, Path, Dict, List]) -> Any:
-    """Load JSON from a file path or return the object directly.
+class ChangeType(Enum):
+    """Types of differences between JSON values."""
+    ADDED = "added"
+    DELETED = "deleted"
+    CHANGED = "changed"
+    TYPE_CHANGED = "type_changed"
+    NESTED_CHANGE = "nested_change"
+
+
+@dataclass
+class DiffEntry:
+    """Represents a single difference entry."""
+    path: str
+    change_type: ChangeType
+    old_value: Any = None
+    new_value: Any = None
+    path_parts: List[str] = field(default_factory=list)
     
-    Args:
-        source: File path (str/Path) or JSON object (dict/list)
+    def __post_init__(self):
+        if not self.path_parts and self.path:
+            # Convert path like "root['key'][0]" to parts
+            self.path_parts = self._parse_path(self.path)
+    
+    def _parse_path(self, path: str) -> List[str]:
+        """Parse a DeepDiff path string into parts."""
+        parts = []
+        current = ""
+        in_bracket = False
         
-    Returns:
-        Parsed JSON object
+        for char in path:
+            if char == "[":
+                if current:
+                    parts.append(current)
+                    current = ""
+                in_bracket = True
+            elif char == "]":
+                if current:
+                    parts.append(current.strip("'\""))
+                    current = ""
+                in_bracket = False
+            elif char == "." and not in_bracket:
+                if current:
+                    parts.append(current)
+                    current = ""
+            else:
+                current += char
         
-    Raises:
-        FileReadError: If file cannot be read
-        InvalidJsonError: If JSON content is invalid
+        if current:
+            parts.append(current)
+        
+        return parts
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            'path': self.path,
+            'change_type': self.change_type.value,
+            'old_value': self.old_value,
+            'new_value': self.new_value,
+            'path_parts': self.path_parts
+        }
+
+
+@dataclass
+class DiffResult:
+    """Container for comparison results."""
+    left_data: Any
+    right_data: Any
+    differences: List[DiffEntry] = field(default_factory=list)
+    raw_diff: Optional[Dict] = None
+    error: Optional[str] = None
+    
+    @property
+    def has_differences(self) -> bool:
+        """Check if there are any differences."""
+        return len(self.differences) > 0
+    
+    @property
+    def additions(self) -> List[DiffEntry]:
+        """Get list of additions."""
+        return [d for d in self.differences if d.change_type == ChangeType.ADDED]
+    
+    @property
+    def deletions(self) -> List[DiffEntry]:
+        """Get list of deletions."""
+        return [d for d in self.differences if d.change_type == ChangeType.DELETED]
+    
+    @property
+    def changes(self) -> List[DiffEntry]:
+        """Get list of modifications."""
+        return [d for d in self.differences if d.change_type == ChangeType.CHANGED]
+    
+    @property
+    def summary(self) -> Dict[str, int]:
+        """Get summary statistics."""
+        return {
+            'total': len(self.differences),
+            'additions': len(self.additions),
+            'deletions': len(self.deletions),
+            'changes': len(self.changes)
+        }
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            'has_differences': self.has_differences,
+            'differences': [d.to_dict() for d in self.differences],
+            'summary': self.summary,
+            'raw_diff': self.raw_diff
+        }
+    
+    def to_json_patch(self) -> List[Dict[str, Any]]:
+        """Convert to JSON Patch format (RFC 6902)."""
+        patches = []
+        
+        for diff in self.differences:
+            path = "/" + "/".join(diff.path_parts) if diff.path_parts else "/"
+            
+            if diff.change_type == ChangeType.ADDED:
+                patches.append({
+                    "op": "add",
+                    "path": path,
+                    "value": diff.new_value
+                })
+            elif diff.change_type == ChangeType.DELETED:
+                patches.append({
+                    "op": "remove",
+                    "path": path
+                })
+            elif diff.change_type == ChangeType.CHANGED:
+                patches.append({
+                    "op": "replace",
+                    "path": path,
+                    "value": diff.new_value
+                })
+        
+        return patches
+
+
+def compare(
+    left: Union[Dict, List, str],
+    right: Union[Dict, List, str],
+    ignore_order: bool = False,
+    ignore_paths: Optional[List[str]] = None,
+    **kwargs
+) -> DiffResult:
     """
-    if isinstance(source, (str, Path)):
-        path = Path(source)
-        if not path.exists():
-            raise FileReadError(f"File not found: {source}")
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except json.JSONDecodeError as e:
-            raise InvalidJsonError(f"Invalid JSON in {source}: {e}")
-        except IOError as e:
-            raise FileReadError(f"Cannot read {source}: {e}")
-    else:
-        return source
-
-
-def compare_json(left: Any, right: Any) -> DiffResult:
-    """Compare two JSON structures.
+    Compare two JSON objects and return differences.
     
     Args:
-        left: Left JSON source (file path or object)
-        right: Right JSON source (file path or object)
+        left: Left side JSON data (original)
+        right: Right side JSON data (modified)
+        ignore_order: Whether to ignore array order differences
+        ignore_paths: List of paths to ignore (dot notation)
+        **kwargs: Additional arguments passed to DeepDiff
         
     Returns:
         DiffResult containing all differences
+        
+    Raises:
+        ComparisonError: If comparison fails
     """
+    if not DEEPDIFF_AVAILABLE:
+        raise ComparisonError(
+            "deepdiff library is required for comparison. "
+            "Please install it with: pip install deepdiff"
+        )
+    
     try:
-        left_data = load_json(left)
-        right_data = load_json(right)
+        # Build DeepDiff parameters
+        diff_kwargs = {
+            'ignore_order': ignore_order,
+            'report_repetition': True,
+            'verbose_level': 2,
+        }
         
-        diff = DeepDiff(left_data, right_data, ignore_order=False, verbose_level=2)
+        if ignore_paths:
+            diff_kwargs['exclude_paths'] = ignore_paths
         
-        added = set()
-        removed = set()
-        changed = set()
+        diff_kwargs.update(kwargs)
         
-        if 'dictionary_item_added' in diff:
-            for path in diff['dictionary_item_added']:
-                added.add(path)
+        # Perform comparison
+        diff = DeepDiff(left, right, **diff_kwargs)
         
-        if 'dictionary_item_removed' in diff:
-            for path in diff['dictionary_item_removed']:
-                removed.add(path)
+        # Convert to our DiffResult format
+        differences = []
         
-        if 'values_changed' in diff:
-            for path in diff['values_changed']:
-                changed.add(path)
-        
-        if 'type_changes' in diff:
-            for path in diff['type_changes']:
-                changed.add(path)
-        
-        left_path = str(left) if not isinstance(left, (dict, list)) else "<inline>"
-        right_path = str(right) if not isinstance(right, (dict, list)) else "<inline>"
+        for key, value in diff.items():
+            if key == 'dictionary_item_added':
+                for path, new_val in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.ADDED,
+                        new_value=new_val
+                    ))
+            
+            elif key == 'dictionary_item_removed':
+                for path, old_val in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.DELETED,
+                        old_value=old_val
+                    ))
+            
+            elif key == 'type_changes':
+                for path, change in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.TYPE_CHANGED,
+                        old_value=change.get('old_value'),
+                        new_value=change.get('new_value')
+                    ))
+            
+            elif key == 'values_changed':
+                for path, change in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.CHANGED,
+                        old_value=change.get('old_value'),
+                        new_value=change.get('new_value')
+                    ))
+            
+            elif key == 'type_changes':
+                for path, change in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.TYPE_CHANGED,
+                        old_value=change.get('old_value'),
+                        new_value=change.get('new_value')
+                    ))
+            
+            elif key == 'nested_changed':
+                for path, change in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.NESTED_CHANGE,
+                        old_value=change.get('old_value'),
+                        new_value=change.get('new_value')
+                    ))
+            
+            elif key == 'iterable_item_added':
+                for path, new_val in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.ADDED,
+                        new_value=new_val
+                    ))
+            
+            elif key == 'iterable_item_removed':
+                for path, old_val in value.items():
+                    differences.append(DiffEntry(
+                        path=path,
+                        change_type=ChangeType.DELETED,
+                        old_value=old_val
+                    ))
         
         return DiffResult(
-            left_path=left_path,
-            right_path=right_path,
-            differences=diff.to_dict(),
-            added=added,
-            removed=removed,
-            changed=changed,
+            left_data=left,
+            right_data=right,
+            differences=differences,
+            raw_diff=diff.to_dict() if hasattr(diff, 'to_dict') else dict(diff)
         )
         
-    except (FileReadError, InvalidJsonError):
-        raise
     except Exception as e:
-        raise ComparisonError(f"Comparison failed: {e}")
-
-
-def generate_json_patch(diff_result: DiffResult) -> List[Dict]:
-    """Generate JSON Patch (RFC 6902) format from diff result.
-    
-    Args:
-        diff_result: The DiffResult to convert
-        
-    Returns:
-        List of JSON Patch operations
-    """
-    import jsonpatch
-    
-    patch = []
-    
-    for path in sorted(diff_result.removed):
-        patch.append({
-            "op": "remove",
-            "path": path_to_json_pointer(path)
-        })
-    
-    for path in sorted(diff_result.added):
-        patch.append({
-            "op": "add",
-            "path": path_to_json_pointer(path),
-            "value": diff_result.differences.get('dictionary_item_added', {}).get(path)
-        })
-    
-    for path in sorted(diff_result.changed):
-        changes = diff_result.differences.get('values_changed', {}).get(path, {})
-        patch.append({
-            "op": "replace",
-            "path": path_to_json_pointer(path),
-            "value": changes.get('new_value')
-        })
-    
-    return patch
-
-
-def path_to_json_pointer(path: str) -> str:
-    """Convert deepdiff path to JSON Pointer format.
-    
-    Args:
-        path: Deepdiff path like "root['key']['subkey']"
-        
-    Returns:
-        JSON Pointer like "/key/subkey"
-    """
-    import re
-    
-    path = path.replace("root", "")
-    parts = re.findall(r"\['([^']+)'\]", path)
-    return "/" + "/".join(parts) if parts else "/"
+        raise ComparisonError(details=str(e))

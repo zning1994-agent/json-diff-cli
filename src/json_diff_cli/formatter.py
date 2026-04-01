@@ -1,110 +1,144 @@
-"""Output formatting for different formats."""
+"""
+Output formatting module.
+
+Provides various output format conversions for diff results.
+"""
 
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
-from .differ import generate_json_patch
-from . import DiffResult, OutputFormat
-
-
-class DiffFormatter:
-    """Formatter for DiffResult objects."""
-    
-    def __init__(self, diff_result: DiffResult):
-        """Initialize formatter with a diff result.
-        
-        Args:
-            diff_result: The comparison result to format
-        """
-        self.diff_result = diff_result
-    
-    def to_terminal(self) -> str:
-        """Format differences for terminal display (raw text version).
-        
-        Returns:
-            Formatted string for terminal output
-        """
-        lines = []
-        lines.append(f"Comparing: {self.diff_result.left_path}")
-        lines.append(f"     with: {self.diff_result.right_path}")
-        lines.append("-" * 50)
-        
-        if not self.diff_result.has_differences:
-            lines.append("No differences found!")
-            return "\n".join(lines)
-        
-        if self.diff_result.added:
-            lines.append(f"\n[+] Added ({len(self.diff_result.added)}):")
-            for path in sorted(self.diff_result.added):
-                lines.append(f"    {path}")
-        
-        if self.diff_result.removed:
-            lines.append(f"\n[-] Removed ({len(self.diff_result.removed)}):")
-            for path in sorted(self.diff_result.removed):
-                lines.append(f"    {path}")
-        
-        if self.diff_result.changed:
-            lines.append(f"\n[~] Modified ({len(self.diff_result.changed)}):")
-            for path in sorted(self.diff_result.changed):
-                lines.append(f"    {path}")
-        
-        lines.append("-" * 50)
-        lines.append(f"Total: {self.diff_result.total_changes} change(s)")
-        
-        return "\n".join(lines)
-    
-    def to_json_patch(self) -> str:
-        """Format differences as JSON Patch (RFC 6902).
-        
-        Returns:
-            JSON string of patch operations
-        """
-        patch = generate_json_patch(self.diff_result)
-        return json.dumps(patch, indent=2, ensure_ascii=False)
-    
-    def to_summary(self) -> str:
-        """Generate a brief summary of differences.
-        
-        Returns:
-            Summary string
-        """
-        return self.diff_result.summary
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format.
-        
-        Returns:
-            Dictionary representation
-        """
-        return {
-            "left": self.diff_result.left_path,
-            "right": self.diff_result.right_path,
-            "has_differences": self.diff_result.has_differences,
-            "total_changes": self.diff_result.total_changes,
-            "added": sorted(self.diff_result.added),
-            "removed": sorted(self.diff_result.removed),
-            "changed": sorted(self.diff_result.changed),
-            "differences": self.diff_result.differences,
-        }
+from .differ import DiffResult, DiffEntry, ChangeType
 
 
-def format_diff(diff_result: DiffResult, fmt: OutputFormat = OutputFormat.TERMINAL) -> str:
-    """Format a diff result in the specified format.
+def format_terminal(diff_result: DiffResult) -> str:
+    """
+    Format diff result for terminal display (plain text).
     
     Args:
         diff_result: The comparison result
-        fmt: Output format
         
     Returns:
-        Formatted string
+        Formatted string for terminal display
     """
-    formatter = DiffFormatter(diff_result)
+    if not diff_result.has_differences:
+        return "✓ No differences found"
     
-    if fmt == OutputFormat.TERMINAL:
-        return formatter.to_terminal()
-    elif fmt == OutputFormat.JSON_PATCH:
-        return formatter.to_json_patch()
-    elif fmt == OutputFormat.SUMMARY:
-        return formatter.to_summary()
-    else:
-        return formatter.to_terminal()
+    lines = []
+    
+    # Summary
+    summary = diff_result.summary
+    lines.append(f"Found {summary['total']} difference(s):")
+    
+    # Additions
+    if summary['additions'] > 0:
+        lines.append(f"\n  + Added ({summary['additions']}):")
+        for diff in diff_result.additions:
+            lines.append(f"    {diff.path}: {diff.new_value}")
+    
+    # Deletions
+    if summary['deletions'] > 0:
+        lines.append(f"\n  - Deleted ({summary['deletions']}):")
+        for diff in diff_result.deletions:
+            lines.append(f"    {diff.path}: {diff.old_value}")
+    
+    # Changes
+    if summary['changes'] > 0:
+        lines.append(f"\n  ~ Modified ({summary['changes']}):")
+        for diff in diff_result.changes:
+            lines.append(f"    {diff.path}:")
+            lines.append(f"      - {diff.old_value}")
+            lines.append(f"      + {diff.new_value}")
+    
+    return "\n".join(lines)
+
+
+def format_json_patch(diff_result: DiffResult) -> List[Dict[str, Any]]:
+    """
+    Format diff result as JSON Patch (RFC 6902).
+    
+    Args:
+        diff_result: The comparison result
+        
+    Returns:
+        List of JSON Patch operations
+    """
+    return diff_result.to_json_patch()
+
+
+def format_summary(diff_result: DiffResult) -> str:
+    """
+    Format a brief summary of differences.
+    
+    Args:
+        diff_result: The comparison result
+        
+    Returns:
+        Summary string
+    """
+    summary = diff_result.summary
+    
+    if not diff_result.has_differences:
+        return "✓ JSON files are identical"
+    
+    parts = []
+    if summary['additions'] > 0:
+        parts.append(f"{summary['additions']} addition(s)")
+    if summary['deletions'] > 0:
+        parts.append(f"{summary['deletions']} deletion(s)")
+    if summary['changes'] > 0:
+        parts.append(f"{summary['changes']} modification(s)")
+    
+    return f"✗ {', '.join(parts)}"
+
+
+def format_json_output(diff_result: DiffResult) -> str:
+    """
+    Format diff result as machine-readable JSON.
+    
+    Args:
+        diff_result: The comparison result
+        
+    Returns:
+        JSON string
+    """
+    return json.dumps(diff_result.to_dict(), indent=2, default=str)
+
+
+def format_verbose(diff_result: DiffResult) -> str:
+    """
+    Format diff result with verbose details.
+    
+    Args:
+        diff_result: The comparison result
+        
+    Returns:
+        Verbose formatted string
+    """
+    lines = []
+    
+    lines.append("=" * 60)
+    lines.append("JSON DIFF REPORT")
+    lines.append("=" * 60)
+    
+    summary = diff_result.summary
+    lines.append(f"\nSummary:")
+    lines.append(f"  Total differences: {summary['total']}")
+    lines.append(f"  Additions: {summary['additions']}")
+    lines.append(f"  Deletions: {summary['deletions']}")
+    lines.append(f"  Modifications: {summary['changes']}")
+    
+    if diff_result.has_differences:
+        lines.append("\n" + "-" * 60)
+        lines.append("Details:")
+        
+        for diff in diff_result.differences:
+            lines.append(f"\n  [{diff.change_type.value.upper()}] {diff.path}")
+            
+            if diff.old_value is not None:
+                lines.append(f"    Old: {diff.old_value}")
+            if diff.new_value is not None:
+                lines.append(f"    New: {diff.new_value}")
+    
+    lines.append("\n" + "=" * 60)
+    
+    return "\n".join(lines)
