@@ -7,17 +7,17 @@ class JsonDiffError(Exception):
 
 
 class FileReadError(JsonDiffError):
-    """Raised when a JSON file cannot be read."""
+    """Raised when a file cannot be read."""
     pass
 
 
 class InvalidJsonError(JsonDiffError):
-    """Raised when a file does not contain valid JSON."""
+    """Raised when JSON content is invalid."""
     pass
 
 
 class ComparisonError(JsonDiffError):
-    """Raised when JSON comparison fails."""
+    """Raised when comparison fails."""
     pass
 
 

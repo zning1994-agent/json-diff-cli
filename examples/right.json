@@ -1,18 +1,14 @@
 {
-  "name": "json-diff-cli",
-  "version": "2.0.0",
-  "config": {
-    "debug": true,
-    "timeout": 60,
-    "features": {
-      "dark_mode": true,
-      "auto_save": true,
-      "notifications": true
-    }
+  "name": "Jane Doe",
+  "age": 31,
+  "city": "Shanghai",
+  "skills": ["Python", "Go", "Rust", "Docker"],
+  "address": {
+    "street": "456 Park Ave",
+    "zip": "200000",
+    "country": "China"
   },
-  "users": [
-    {"id": 1, "name": "Alice", "role": "owner"},
-    {"id": 3, "name": "Charlie", "role": "user"}
-  ],
-  "tags": ["python", "json", "diff"]
+  "active": true,
+  "score": 92.0,
+  "email": "jane@example.com"
 }

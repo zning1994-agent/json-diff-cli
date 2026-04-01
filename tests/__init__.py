@@ -1,1 +1,1 @@
-"""Tests package for json-diff-cli."""
+# Tests for json-diff-cli

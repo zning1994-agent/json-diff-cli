@@ -1,82 +1,75 @@
-"""
-Test fixtures and configuration for json-diff-cli tests.
-"""
+"""Pytest fixtures for json-diff-cli tests."""
 
+import pytest
 import json
-import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
-import pytest
-
 
 @pytest.fixture
-def sample_json_simple() -> Dict[str, Any]:
-    """Simple JSON object for testing."""
+def sample_json_left() -> Dict[str, Any]:
+    """Sample JSON data for left file."""
     return {
-        "name": "test",
-        "version": "1.0.0",
-        "enabled": True,
+        "name": "John",
+        "age": 30,
+        "city": "Beijing",
+        "skills": ["Python", "Go"],
+        "address": {
+            "street": "Main St",
+            "zip": "100000"
+        }
     }
 
 
 @pytest.fixture
-def sample_json_nested() -> Dict[str, Any]:
-    """Nested JSON object for testing."""
+def sample_json_right() -> Dict[str, Any]:
+    """Sample JSON data for right file."""
     return {
-        "project": "json-diff-cli",
-        "config": {
-            "database": {
-                "host": "localhost",
-                "port": 5432,
-                "credentials": {
-                    "username": "admin",
-                    "password": "secret",
-                },
-            },
-            "cache": {
-                "enabled": True,
-                "ttl": 3600,
-            },
+        "name": "John",
+        "age": 31,
+        "city": "Shanghai",
+        "skills": ["Python", "Go", "Rust"],
+        "address": {
+            "street": "Main St",
+            "zip": "200000"
         },
-        "features": ["cli", "api", "webhook"],
+        "email": "john@example.com"
     }
 
 
 @pytest.fixture
-def sample_json_array() -> Dict[str, Any]:
-    """JSON with arrays for testing."""
+def temp_json_files(tmp_path, sample_json_left, sample_json_right):
+    """Create temporary JSON files."""
+    left_file = tmp_path / "left.json"
+    right_file = tmp_path / "right.json"
+    
+    left_file.write_text(json.dumps(sample_json_left, indent=2))
+    right_file.write_text(json.dumps(sample_json_right, indent=2))
+    
+    return left_file, right_file
+
+
+@pytest.fixture
+def empty_json_left() -> Dict[str, Any]:
+    """Empty JSON object for left."""
+    return {}
+
+
+@pytest.fixture
+def empty_json_right() -> Dict[str, Any]:
+    """Empty JSON object for right."""
+    return {}
+
+
+@pytest.fixture
+def nested_json() -> Dict[str, Any]:
+    """Deeply nested JSON structure."""
     return {
-        "users": [
-            {"id": 1, "name": "Alice"},
-            {"id": 2, "name": "Bob"},
-        ],
-        "tags": ["python", "cli", "json"],
+        "level1": {
+            "level2": {
+                "level3": {
+                    "value": "deep"
+                }
+            }
+        }
     }
-
-
-@pytest.fixture
-def temp_json_file(tmp_path: Path, sample_json_simple: Dict[str, Any]) -> Path:
-    """Create a temporary JSON file with simple content."""
-    file_path = tmp_path / "test.json"
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(sample_json_simple, f)
-    return file_path
-
-
-@pytest.fixture
-def temp_json_pair(
-    tmp_path: Path,
-    sample_json_simple: Dict[str, Any],
-) -> tuple[Path, Path]:
-    """Create a pair of temporary JSON files."""
-    left_path = tmp_path / "left.json"
-    right_path = tmp_path / "right.json"
-    
-    with open(left_path, "w", encoding="utf-8") as f:
-        json.dump(sample_json_simple, f)
-    
-    with open(right_path, "w", encoding="utf-8") as f:
-        json.dump(sample_json_simple, f)
-    
-    return left_path, right_path
