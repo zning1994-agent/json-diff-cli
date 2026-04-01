@@ -1,13 +1,14 @@
 {
-  "name": "John Doe",
-  "age": 30,
+  "name": "Alice",
+  "age": 28,
   "city": "Beijing",
-  "skills": ["Python", "Go", "Docker"],
-  "address": {
-    "street": "123 Main St",
-    "zip": "100000",
-    "country": "China"
+  "skills": [
+    "Python",
+    "Docker"
+  ],
+  "profile": {
+    "education": "MIT",
+    "experience": 3
   },
-  "active": true,
-  "score": 85.5
+  "active": true
 }

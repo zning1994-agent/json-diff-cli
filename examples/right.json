@@ -1,14 +1,16 @@
 {
-  "name": "Jane Doe",
-  "age": 31,
+  "name": "Alice",
+  "age": 29,
   "city": "Shanghai",
-  "skills": ["Python", "Go", "Rust", "Docker"],
-  "address": {
-    "street": "456 Park Ave",
-    "zip": "200000",
-    "country": "China"
+  "skills": [
+    "Python",
+    "Kubernetes",
+    "Go"
+  ],
+  "profile": {
+    "education": "MIT",
+    "experience": 4
   },
-  "active": true,
-  "score": 92.0,
-  "email": "jane@example.com"
+  "email": "alice@example.com",
+  "active": true
 }
