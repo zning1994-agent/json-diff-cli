@@ -1,0 +1,18 @@
+{
+  "name": "json-diff-cli",
+  "version": "2.0.0",
+  "config": {
+    "debug": true,
+    "timeout": 60,
+    "features": {
+      "dark_mode": true,
+      "auto_save": true,
+      "notifications": true
+    }
+  },
+  "users": [
+    {"id": 1, "name": "Alice", "role": "owner"},
+    {"id": 3, "name": "Charlie", "role": "user"}
+  ],
+  "tags": ["python", "json", "diff"]
+}
