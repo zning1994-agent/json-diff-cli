@@ -1,47 +1,35 @@
-"""
-json-diff-cli - A Python CLI tool for comparing JSON files with colorful output.
-
-This package provides both a command-line interface and a Python API
-for comparing JSON files and displaying differences in a human-readable format.
-"""
+"""json-diff-cli: A Python CLI tool for comparing JSON files."""
 
 __version__ = "0.1.0"
-__author__ = "json-diff-cli contributors"
-__license__ = "MIT"
 
-# Core comparison API
-from .differ import (
-    ChangeType,
-    DiffEntry,
-    DiffResult,
-    compare,
-    compare_files,
-    load_json,
-)
-
-# Exceptions
+from .differ import DiffEntry, DiffResult, DiffType, compare, compare_files
+from .formatter import Formatter, OutputFormat, format_diff
 from .exceptions import (
     ComparisonError,
     FileReadError,
-    InvalidJSONError,
-    JSONDiffError,
+    InvalidJsonError,
+    JsonDiffError,
     OutputFormatError,
 )
 
 __all__ = [
     # Version
     "__version__",
-    # Core API
-    "ChangeType",
+    # Diff types
+    "DiffType",
     "DiffEntry",
     "DiffResult",
+    # Comparison functions
     "compare",
     "compare_files",
-    "load_json",
+    # Formatter
+    "Formatter",
+    "OutputFormat",
+    "format_diff",
     # Exceptions
-    "JSONDiffError",
+    "JsonDiffError",
     "FileReadError",
-    "InvalidJSONError",
+    "InvalidJsonError",
     "ComparisonError",
     "OutputFormatError",
 ]
