@@ -554,12 +554,5 @@ class TestCLIMixedScenarios:
         assert 'Error' not in result.output or 'invalid' not in result.output.lower()
 
 
-# Fixtures for tests that need them
-@pytest.fixture
-def temp_dir(tmp_path):
-    """Create a temporary directory for test files."""
-    return tmp_path
-
-
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
