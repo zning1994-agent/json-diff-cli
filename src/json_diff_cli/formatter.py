@@ -4,8 +4,6 @@ import json
 from enum import Enum
 from typing import Any, Dict, List
 
-import jsonpatch
-
 from .differ import DiffResult
 
 
@@ -56,17 +54,15 @@ def _format_summary(result: DiffResult) -> str:
     
     lines = [
         "=== JSON Diff Summary ===",
-        f"Left file:  {result.left_path}",
-        f"Right file: {result.right_path}",
         "",
         "Changes:",
         f"  Additions:     {summary['additions']}",
         f"  Deletions:     {summary['deletions']}",
         f"  Modifications: {summary['modifications']}",
-        f"  Total:         {summary['total']}",
+        f"  Total:         {summary['total_changes']}",
     ]
     
-    if not result.has_differences:
+    if not result.has_changes():
         lines.append("\nNo differences found.")
     
     return "\n".join(lines)

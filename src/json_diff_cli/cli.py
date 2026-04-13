@@ -77,10 +77,10 @@ def main(
             console.print(f"  Additions: {summary['additions']}")
             console.print(f"  Deletions: {summary['deletions']}")
             console.print(f"  Modifications: {summary['modifications']}")
-            console.print(f"  Total changes: {summary['total']}")
+            console.print(f"  Total changes: {summary['total_changes']}")
         
         # Exit code based on differences
-        if result.has_differences:
+        if result.has_changes():
             sys.exit(1)
         else:
             sys.exit(0)

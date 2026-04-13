@@ -17,7 +17,7 @@ def render_diff(result: DiffResult) -> str:
     Returns:
         Rendered string representation
     """
-    if not result.has_differences:
+    if not result.has_changes():
         return "[green]✓ No differences found[/green]"
     
     lines = []
