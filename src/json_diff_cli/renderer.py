@@ -25,20 +25,29 @@ def render_diff(result: DiffResult) -> str:
     lines = []
     lines.append("[bold]=== JSON Diff Results ===[/bold]\n")
     
+    def items_view(d):
+        """Return items from dict or SetOrdered."""
+        if hasattr(d, 'items'):
+            return d.items()
+        from deepdiff.helper import SetOrdered
+        if isinstance(d, SetOrdered):
+            return [(str(x), None) for x in d]
+        return {}.items()
+    
     # Additions
     additions = result.additions
     if additions:
         lines.append("[bold green]📍 Additions:[/bold green]")
-        for path, value in additions.items():
-            lines.append(f"  {format_path(path)}: [green]{format_value(value)}[/green]")
+        for path, value in items_view(additions):
+            lines.append(f"  {format_path(str(path))}: [green]{format_value(value)}[/green]")
         lines.append("")
     
     # Deletions
     deletions = result.deletions
     if deletions:
         lines.append("[bold red]📍 Deletions:[/bold red]")
-        for path, value in deletions.items():
-            lines.append(f"  {format_path(path)}: [red]{format_value(value)}[/red]")
+        for path, value in items_view(deletions):
+            lines.append(f"  {format_path(str(path))}: [red]{format_value(value)}[/red]")
         lines.append("")
     
     # Modifications
@@ -48,7 +57,7 @@ def render_diff(result: DiffResult) -> str:
         for path, change in modifications.items():
             old_val = change.get('old_value', 'N/A')
             new_val = change.get('new_value', 'N/A')
-            lines.append(f"  {format_path(path)}:")
+            lines.append(f"  {format_path(str(path))}:")
             lines.append(f"    [red]- {format_value(old_val)}[/red]")
             lines.append(f"    [green]+ {format_value(new_val)}[/green]")
         lines.append("")
@@ -72,11 +81,11 @@ def render_diff_table(result: DiffResult) -> Table:
     table.add_column("Path", style="cyan")
     table.add_column("Value", style="white")
     
-    for path, value in result.additions.items():
-        table.add_row("Addition", format_path(path), format_value(value))
+    for path, value in items_view(result.additions):
+        table.add_row("Addition", format_path(str(path)), format_value(value))
     
-    for path, value in result.deletions.items():
-        table.add_row("Deletion", format_path(path), format_value(value))
+    for path, value in items_view(result.deletions):
+        table.add_row("Deletion", format_path(str(path)), format_value(value))
     
     for path, change in result.modifications.items():
         old_val = change.get('old_value', 'N/A')

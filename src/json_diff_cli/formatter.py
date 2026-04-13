@@ -63,7 +63,7 @@ def _format_summary(result: DiffResult) -> str:
         f"  Additions:     {summary['additions']}",
         f"  Deletions:     {summary['deletions']}",
         f"  Modifications: {summary['modifications']}",
-        f"  Total:         {summary['total']}",
+        f"  Total:         {summary['total_changes']}",
     ]
     
     if not result.has_differences:
@@ -84,9 +84,19 @@ def diff_to_json_patch(result: DiffResult) -> List[Dict[str, Any]]:
     """
     patches = []
     
+    def items_view(d):
+        """Return items from dict or SetOrdered."""
+        if hasattr(d, 'items'):
+            return d.items()
+        # SetOrdered - treat each element as (path, None)
+        from deepdiff.helper import SetOrdered
+        if isinstance(d, SetOrdered):
+            return [(str(x), None) for x in d]
+        return {}.items()
+    
     # Process additions - convert paths to JSON Pointer (RFC 6901)
-    for path, value in result.additions.items():
-        pointer = path_to_pointer(path)
+    for path, value in items_view(result.additions):
+        pointer = path_to_pointer(str(path))
         patches.append({
             "op": "add",
             "path": pointer,
@@ -94,8 +104,8 @@ def diff_to_json_patch(result: DiffResult) -> List[Dict[str, Any]]:
         })
     
     # Process deletions
-    for path, value in result.deletions.items():
-        pointer = path_to_pointer(path)
+    for path, value in items_view(result.deletions):
+        pointer = path_to_pointer(str(path))
         patches.append({
             "op": "remove",
             "path": pointer
@@ -103,7 +113,7 @@ def diff_to_json_patch(result: DiffResult) -> List[Dict[str, Any]]:
     
     # Process modifications
     for path, change in result.modifications.items():
-        pointer = path_to_pointer(path)
+        pointer = path_to_pointer(str(path))
         patches.append({
             "op": "replace",
             "path": pointer,

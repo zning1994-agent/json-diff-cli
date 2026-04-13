@@ -75,10 +75,8 @@ def main(
         
         if output_file is not None:
             output_file.write_text(output_text, encoding='utf-8')
-        elif fmt == OutputFormat.TERMINAL:
-            console.print(output_text)
         else:
-            console.print(output_text, no_color=color is False)
+            console.print(output_text)
         
         # Show statistics if requested
         if stat:
@@ -96,13 +94,13 @@ def main(
             sys.exit(0)
             
     except FileReadError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         sys.exit(2)
     except InvalidJsonError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         sys.exit(3)
     except JsonDiffError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         sys.exit(4)
 
 

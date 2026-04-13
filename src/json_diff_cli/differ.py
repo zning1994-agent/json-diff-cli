@@ -12,14 +12,21 @@ from deepdiff import DeepDiff
 class DiffResult:
     """Result of comparing two JSON structures."""
     
-    left_path: Path
-    right_path: Path
     left_data: Any
     right_data: Any
+    left_path: Optional[Path] = None
+    right_path: Optional[Path] = None
     diff: Optional[DeepDiff] = None
     
     def __post_init__(self):
-        if self.diff is None:
+        # Support simple dict-only construction: DiffResult(left_dict, right_dict)
+        # If left_path is a dict, it means first arg is left_data
+        if isinstance(self.left_path, (dict, list)) and self.left_data is not None:
+            # Swap: left_path actually contains left_data
+            self.left_data, self.right_data = self.left_path, self.left_data
+            self.left_path = None
+            self.right_path = None
+        if self.diff is None and self.left_data is not None and self.right_data is not None:
             self.diff = DeepDiff(self.left_data, self.right_data, ignore_order=False)
     
     @property
@@ -56,7 +63,7 @@ class DiffResult:
             'additions': len(self.additions),
             'deletions': len(self.deletions),
             'modifications': len(self.modifications),
-            'total': len(self.diff)
+            'total_changes': len(self.diff)
         }
     
     def get_all_changes(self) -> List[Dict[str, Any]]:
