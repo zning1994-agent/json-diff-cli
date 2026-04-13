@@ -363,13 +363,15 @@ class TestSummaryProperty:
         assert hasattr(result, 'summary')
 
     def test_summary_property_type(self):
-        """Test summary property returns string."""
+        """Test summary property returns dict."""
         left = {"name": "alice"}
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
         summary = result.summary
-        assert isinstance(summary, str)
+        assert isinstance(summary, dict)
+        assert 'additions' in summary
+        assert 'total_changes' in summary
 
     def test_summary_property_no_changes(self):
         """Test summary property with identical objects."""
@@ -378,7 +380,10 @@ class TestSummaryProperty:
         result = DiffResult(left, right)
         
         summary = result.summary
-        assert isinstance(summary, str)
+        assert isinstance(summary, dict)
+        assert summary['additions'] == 0
+        assert summary['deletions'] == 0
+        assert summary['total_changes'] == 0
 
 
 class TestDiffResultIntegration:
@@ -393,7 +398,7 @@ class TestDiffResultIntegration:
         assert isinstance(result.to_terminal(), str)
         assert isinstance(result.to_json_patch(), str)
         assert isinstance(result.to_summary(), str)
-        assert isinstance(result.summary, str)
+        assert isinstance(result.summary, dict)
 
     def test_json_patch_parseable_after_terminal(self):
         """Test that to_json_patch output is still valid after to_terminal call."""

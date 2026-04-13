@@ -44,7 +44,7 @@ class TestCLIArguments:
     
     def test_missing_right_argument(self):
         """Test CLI exits with error when right argument is missing."""
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         result = runner.invoke(main, ['/path/to/left.json'])
         
         assert result.exit_code != 0
@@ -64,7 +64,7 @@ class TestCLIArguments:
         result = runner.invoke(main, ['--output', 'json-patch', 'left.json', 'right.json'])
         
         # Option parsing should not fail with usage error
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
     
     def test_output_format_option_summary(self):
         """Test --output summary option."""
@@ -72,14 +72,14 @@ class TestCLIArguments:
         result = runner.invoke(main, ['--output', 'summary', 'left.json', 'right.json'])
         
         # Option parsing should not fail
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
     
     def test_output_format_short_option(self):
         """Test -o short option for output format."""
         runner = CliRunner()
         result = runner.invoke(main, ['-o', 'summary', 'left.json', 'right.json'])
         
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
     
     def test_color_option(self):
         """Test --color and --no-color options."""
@@ -87,18 +87,18 @@ class TestCLIArguments:
         
         # Test --no-color
         result = runner.invoke(main, ['--no-color', 'left.json', 'right.json'])
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
         
         # Test --color
         result = runner.invoke(main, ['--color', 'left.json', 'right.json'])
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
     
     def test_stat_option(self):
         """Test --stat/-s option for statistics."""
         runner = CliRunner()
         result = runner.invoke(main, ['--stat', 'left.json', 'right.json'])
         
-        assert 'Usage' not in result.output or result.exit_code != 2
+        assert 'does not exist' in result.output
     
     def test_invalid_output_format(self):
         """Test CLI exits with error for invalid output format."""
@@ -120,7 +120,7 @@ class TestCLIArguments:
         ])
         
         # Should parse all options correctly
-        assert result.exit_code != 2 or 'Usage' not in result.output
+        assert 'does not exist' in result.output
 
     def test_output_file_option(self, temp_dir):
         """Test --output-file/-f option writes output to file."""
