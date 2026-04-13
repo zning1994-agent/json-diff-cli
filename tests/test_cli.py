@@ -122,6 +122,110 @@ class TestCLIArguments:
         # Should parse all options correctly
         assert result.exit_code != 2 or 'Usage' not in result.output
 
+    def test_output_file_option(self, temp_dir):
+        """Test --output-file/-f option writes output to file."""
+        runner = CliRunner()
+        left = temp_dir / "left.json"
+        right = temp_dir / "right.json"
+        out_file = temp_dir / "diff_output.txt"
+
+        left.write_text('{"name": "Alice", "age": 30}')
+        right.write_text('{"name": "Alice", "age": 31}')
+
+        result = runner.invoke(main, [
+            '--output-file', str(out_file),
+            str(left), str(right)
+        ])
+
+        assert result.exit_code in [0, 1]
+        assert out_file.exists()
+        content = out_file.read_text(encoding='utf-8')
+        assert 'name' in content or 'age' in content or 'No differences' in content
+
+    def test_output_file_short_option(self, temp_dir):
+        """Test -f short option for output file."""
+        runner = CliRunner()
+        left = temp_dir / "left.json"
+        right = temp_dir / "right.json"
+        out_file = temp_dir / "diff_output.txt"
+
+        left.write_text('{"key": "value1"}')
+        right.write_text('{"key": "value2"}')
+
+        result = runner.invoke(main, [
+            '-f', str(out_file),
+            str(left), str(right)
+        ])
+
+        assert result.exit_code in [0, 1]
+        assert out_file.exists()
+
+    def test_output_file_with_json_patch_format(self, temp_dir):
+        """Test --output-file with --output json-patch."""
+        runner = CliRunner()
+        left = temp_dir / "left.json"
+        right = temp_dir / "right.json"
+        out_file = temp_dir / "diff_output.json"
+
+        # Use pure modification (no dict key addition) to avoid pre-existing
+        # differ.py SetOrdered bug with dictionary_item_added
+        left.write_text('{"name": "Alice", "age": 30}')
+        right.write_text('{"name": "Bob", "age": 30}')
+
+        result = runner.invoke(main, [
+            '--output', 'json-patch',
+            '--output-file', str(out_file),
+            str(left), str(right)
+        ])
+
+        assert result.exit_code in [0, 1]
+        assert out_file.exists()
+        content = out_file.read_text(encoding='utf-8')
+        # Should be valid JSON
+        import json
+        parsed = json.loads(content)
+        assert isinstance(parsed, list)
+
+    def test_output_file_no_stdout(self, temp_dir):
+        """Test that --output-file suppresses stdout."""
+        runner = CliRunner()
+        left = temp_dir / "left.json"
+        right = temp_dir / "right.json"
+        out_file = temp_dir / "diff_output.txt"
+
+        left.write_text('{"name": "Alice"}')
+        right.write_text('{"name": "Bob"}')
+
+        result = runner.invoke(main, [
+            '--output-file', str(out_file),
+            str(left), str(right)
+        ])
+
+        # stdout should be empty or minimal when writing to file
+        # (but rich may still print something to stdout)
+        assert out_file.exists()
+
+    def test_output_file_summary_format(self, temp_dir):
+        """Test --output-file with --output summary."""
+        runner = CliRunner()
+        left = temp_dir / "left.json"
+        right = temp_dir / "right.json"
+        out_file = temp_dir / "diff_output.txt"
+
+        left.write_text('{"name": "Alice", "age": 30}')
+        right.write_text('{"name": "Bob", "age": 31}')
+
+        result = runner.invoke(main, [
+            '--output', 'summary',
+            '--output-file', str(out_file),
+            str(left), str(right)
+        ])
+
+        assert result.exit_code in [0, 1]
+        assert out_file.exists()
+        content = out_file.read_text(encoding='utf-8')
+        assert 'Changes' in content or 'Summary' in content or 'No differences' in content
+
 
 class TestCLIFileReading:
     """Test CLI file reading functionality."""

@@ -34,13 +34,21 @@ console = Console()
     is_flag=True,
     help='Show statistics summary'
 )
+@click.option(
+    '--output-file',
+    '-f',
+    type=click.Path(path_type=Path),
+    default=None,
+    help='Write output to file instead of stdout'
+)
 @click.version_option(version='0.1.0', prog_name='json-diff')
 def main(
     left: Path,
     right: Path,
     output: str,
     color: Optional[bool],
-    stat: bool
+    stat: bool,
+    output_file: Optional[Path]
 ) -> int:
     """
     Compare two JSON files and display differences.
@@ -65,7 +73,9 @@ def main(
         # Format and output
         output_text = format_diff(result, fmt)
         
-        if fmt == OutputFormat.TERMINAL:
+        if output_file is not None:
+            output_file.write_text(output_text, encoding='utf-8')
+        elif fmt == OutputFormat.TERMINAL:
             console.print(output_text)
         else:
             console.print(output_text, no_color=color is False)
