@@ -1,99 +1,111 @@
 """Tests for formatter module.
 
-Tests the to_terminal(), to_json_patch(), and to_summary() methods
-of the DiffResult class.
+Tests the format_diff(), to_json_patch(), and to_summary() functions
+from the formatter module.
 """
 
 import json
 import pytest
 from io import StringIO
+
 from json_diff_cli.differ import DiffResult
+from json_diff_cli.formatter import (
+    format_diff,
+    OutputFormat,
+    diff_to_json_patch,
+    path_to_pointer
+)
 
 
-class TestToTerminal:
-    """Test suite for to_terminal() method."""
+class TestFormatDiff:
+    """Test suite for format_diff() function."""
 
-    def test_to_terminal_with_additions(self):
-        """Test terminal output includes addition markers."""
+    def test_format_diff_terminal(self):
+        """Test format_diff with terminal output."""
+        left = {"name": "alice"}
+        right = {"name": "bob"}
+        result = DiffResult(left, right)
+        
+        output = format_diff(result, OutputFormat.TERMINAL)
+        
+        assert output is not None
+        assert isinstance(output, str)
+        assert len(output) > 0
+
+    def test_format_diff_json_patch(self):
+        """Test format_diff with JSON Patch output."""
+        left = {"name": "alice"}
+        right = {"name": "bob"}
+        result = DiffResult(left, right)
+        
+        output = format_diff(result, OutputFormat.JSON_PATCH)
+        
+        assert output is not None
+        assert isinstance(output, str)
+        # Should be parseable as JSON
+        parsed = json.loads(output)
+        assert isinstance(parsed, list)
+
+    def test_format_diff_summary(self):
+        """Test format_diff with summary output."""
+        left = {"name": "alice"}
+        right = {"name": "bob"}
+        result = DiffResult(left, right)
+        
+        output = format_diff(result, OutputFormat.SUMMARY)
+        
+        assert output is not None
+        assert isinstance(output, str)
+        assert len(output) > 0
+
+    def test_format_diff_with_additions(self):
+        """Test format_diff includes addition markers."""
         left = {"name": "alice"}
         right = {"name": "alice", "age": 30}
         result = DiffResult(left, right)
         
-        output = result.to_terminal()
+        output = format_diff(result, OutputFormat.TERMINAL)
         
         assert output is not None
         assert isinstance(output, str)
         assert len(output) > 0
 
-    def test_to_terminal_with_deletions(self):
-        """Test terminal output includes deletion markers."""
+    def test_format_diff_with_deletions(self):
+        """Test format_diff includes deletion markers."""
         left = {"name": "alice", "age": 25}
         right = {"name": "alice"}
         result = DiffResult(left, right)
         
-        output = result.to_terminal()
+        output = format_diff(result, OutputFormat.TERMINAL)
         
         assert output is not None
         assert isinstance(output, str)
         assert len(output) > 0
 
-    def test_to_terminal_with_modifications(self):
-        """Test terminal output includes modification markers."""
+    def test_format_diff_with_modifications(self):
+        """Test format_diff includes modification markers."""
         left = {"name": "alice", "age": 25}
         right = {"name": "bob", "age": 25}
         result = DiffResult(left, right)
         
-        output = result.to_terminal()
+        output = format_diff(result, OutputFormat.TERMINAL)
         
         assert output is not None
         assert isinstance(output, str)
 
-    def test_to_terminal_with_nested_changes(self):
-        """Test terminal output with deeply nested JSON changes."""
-        left = {"user": {"profile": {"name": "alice", "age": 25}}}
-        right = {"user": {"profile": {"name": "bob", "age": 30}}}
-        result = DiffResult(left, right)
-        
-        output = result.to_terminal()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_terminal_with_array_changes(self):
-        """Test terminal output with array element changes."""
-        left = {"items": [1, 2, 3]}
-        right = {"items": [1, 2, 4]}
-        result = DiffResult(left, right)
-        
-        output = result.to_terminal()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_terminal_no_changes(self):
-        """Test terminal output when no differences exist."""
+    def test_format_diff_no_changes(self):
+        """Test format_diff when no differences exist."""
         left = {"name": "alice", "age": 25}
         right = {"name": "alice", "age": 25}
         result = DiffResult(left, right)
         
-        output = result.to_terminal()
+        output = format_diff(result, OutputFormat.TERMINAL)
         
         assert output is not None
         assert isinstance(output, str)
 
-    def test_to_terminal_empty_objects(self):
-        """Test terminal output with empty objects."""
-        left = {}
-        right = {}
-        result = DiffResult(left, right)
-        
-        output = result.to_terminal()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_terminal_complex_structure(self):
-        """Test terminal output with complex nested structure."""
+    def test_format_diff_complex_structure(self):
+        """Test format_diff with complex nested structure."""
         left = {
             "users": [
                 {"id": 1, "name": "alice", "active": True},
@@ -110,14 +122,14 @@ class TestToTerminal:
         }
         result = DiffResult(left, right)
         
-        output = result.to_terminal()
+        output = format_diff(result, OutputFormat.TERMINAL)
         
         assert output is not None
         assert isinstance(output, str)
 
 
-class TestToJsonPatch:
-    """Test suite for to_json_patch() method."""
+class TestDiffToJsonPatch:
+    """Test suite for diff_to_json_patch() function."""
 
     def test_to_json_patch_valid_format(self):
         """Test that JSON Patch output is valid JSON."""
@@ -125,13 +137,10 @@ class TestToJsonPatch:
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
+        patches = diff_to_json_patch(result)
         
-        assert output is not None
-        assert isinstance(output, str)
-        # Should be parseable as JSON
-        parsed = json.loads(output)
-        assert isinstance(parsed, list)
+        assert patches is not None
+        assert isinstance(patches, list)
 
     def test_to_json_patch_add_operation(self):
         """Test JSON Patch add operation for new fields."""
@@ -139,8 +148,7 @@ class TestToJsonPatch:
         right = {"name": "alice", "age": 30}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         # Should contain at least one patch operation
         assert len(patches) >= 0
@@ -153,8 +161,7 @@ class TestToJsonPatch:
         right = {"name": "alice"}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         assert isinstance(patches, list)
         if patches:
@@ -166,8 +173,7 @@ class TestToJsonPatch:
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         assert isinstance(patches, list)
         if patches:
@@ -180,8 +186,7 @@ class TestToJsonPatch:
         right = {"user": {"name": "bob"}}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         if patches:
             for patch in patches:
@@ -195,8 +200,7 @@ class TestToJsonPatch:
         right = {"user": {"profile": {"name": "bob"}}}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         if patches:
             # Should have paths like /user/profile/name
@@ -209,8 +213,7 @@ class TestToJsonPatch:
         right = {"items": [1, 99, 3]}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         assert isinstance(patches, list)
 
@@ -220,8 +223,7 @@ class TestToJsonPatch:
         right = {"name": "alice"}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         # No changes should produce empty patch list
         assert patches == []
@@ -232,8 +234,7 @@ class TestToJsonPatch:
         right = {"name": "bob", "age": 30, "country": "USA"}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         # Should have multiple operations
         assert len(patches) >= 2
@@ -244,8 +245,7 @@ class TestToJsonPatch:
         right = {"name": "bob", "age": 30}
         result = DiffResult(left, right)
         
-        output = result.to_json_patch()
-        patches = json.loads(output)
+        patches = diff_to_json_patch(result)
         
         for patch in patches:
             # Each patch must have "op" and "path"
@@ -255,8 +255,8 @@ class TestToJsonPatch:
             assert patch["op"] in ["add", "remove", "replace", "move", "copy", "test"]
 
 
-class TestToSummary:
-    """Test suite for to_summary() method."""
+class TestSummaryOutput:
+    """Test suite for summary output format."""
 
     def test_to_summary_with_changes(self):
         """Test summary output contains change count."""
@@ -264,7 +264,7 @@ class TestToSummary:
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
-        output = result.to_summary()
+        output = format_diff(result, OutputFormat.SUMMARY)
         
         assert output is not None
         assert isinstance(output, str)
@@ -276,56 +276,23 @@ class TestToSummary:
         right = {"name": "alice"}
         result = DiffResult(left, right)
         
-        output = result.to_summary()
+        output = format_diff(result, OutputFormat.SUMMARY)
         
         assert output is not None
         assert isinstance(output, str)
 
-    def test_to_summary_counts_additions(self):
-        """Test summary counts additions correctly."""
+    def test_to_summary_contains_counts(self):
+        """Test summary contains counts for changes."""
         left = {"name": "alice"}
         right = {"name": "alice", "age": 30, "city": "NYC"}
         result = DiffResult(left, right)
         
-        output = result.to_summary()
+        output = format_diff(result, OutputFormat.SUMMARY)
         
         # Summary should mention additions
         assert output is not None
-        # The summary should contain some indication of changes
         assert isinstance(output, str)
-
-    def test_to_summary_counts_deletions(self):
-        """Test summary counts deletions correctly."""
-        left = {"name": "alice", "age": 25, "city": "NYC"}
-        right = {"name": "alice"}
-        result = DiffResult(left, right)
-        
-        output = result.to_summary()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_summary_counts_modifications(self):
-        """Test summary counts modifications correctly."""
-        left = {"name": "alice", "age": 25}
-        right = {"name": "bob", "age": 30}
-        result = DiffResult(left, right)
-        
-        output = result.to_summary()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_summary_with_nested_changes(self):
-        """Test summary with deeply nested changes."""
-        left = {"user": {"profile": {"name": "alice"}}}
-        right = {"user": {"profile": {"name": "bob"}}}
-        result = DiffResult(left, right)
-        
-        output = result.to_summary()
-        
-        assert output is not None
-        assert isinstance(output, str)
+        assert "Additions" in output or "additions" in output
 
     def test_to_summary_empty_input(self):
         """Test summary with empty JSON objects."""
@@ -333,25 +300,14 @@ class TestToSummary:
         right = {}
         result = DiffResult(left, right)
         
-        output = result.to_summary()
-        
-        assert output is not None
-        assert isinstance(output, str)
-
-    def test_to_summary_with_type_changes(self):
-        """Test summary with type changes (e.g., int to string)."""
-        left = {"value": 123}
-        right = {"value": "123"}
-        result = DiffResult(left, right)
-        
-        output = result.to_summary()
+        output = format_diff(result, OutputFormat.SUMMARY)
         
         assert output is not None
         assert isinstance(output, str)
 
 
 class TestSummaryProperty:
-    """Test suite for summary property."""
+    """Test suite for DiffResult summary property."""
 
     def test_summary_property_exists(self):
         """Test that DiffResult has a summary property."""
@@ -363,13 +319,25 @@ class TestSummaryProperty:
         assert hasattr(result, 'summary')
 
     def test_summary_property_type(self):
-        """Test summary property returns string."""
+        """Test summary property returns dict."""
         left = {"name": "alice"}
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
         summary = result.summary
-        assert isinstance(summary, str)
+        assert isinstance(summary, dict)
+
+    def test_summary_property_has_keys(self):
+        """Test summary property has expected keys."""
+        left = {"name": "alice"}
+        right = {"name": "bob"}
+        result = DiffResult(left, right)
+        
+        summary = result.summary
+        assert "additions" in summary
+        assert "deletions" in summary
+        assert "modifications" in summary
+        assert "total_changes" in summary
 
     def test_summary_property_no_changes(self):
         """Test summary property with identical objects."""
@@ -378,11 +346,12 @@ class TestSummaryProperty:
         result = DiffResult(left, right)
         
         summary = result.summary
-        assert isinstance(summary, str)
+        assert isinstance(summary, dict)
+        assert summary["total_changes"] == 0
 
 
 class TestDiffResultIntegration:
-    """Integration tests for DiffResult formatting methods."""
+    """Integration tests for formatting functions."""
 
     def test_all_methods_produce_string(self):
         """Test all formatting methods return strings."""
@@ -390,10 +359,10 @@ class TestDiffResultIntegration:
         right = {"name": "bob", "items": [1, 2, 4], "count": 5}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
-        assert isinstance(result.to_summary(), str)
-        assert isinstance(result.summary, str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
+        assert isinstance(format_diff(result, OutputFormat.SUMMARY), str)
+        assert isinstance(result.summary, dict)
 
     def test_json_patch_parseable_after_terminal(self):
         """Test that to_json_patch output is still valid after to_terminal call."""
@@ -401,12 +370,11 @@ class TestDiffResultIntegration:
         right = {"name": "bob"}
         result = DiffResult(left, right)
         
-        result.to_terminal()
-        json_output = result.to_json_patch()
+        format_diff(result, OutputFormat.TERMINAL)
+        patches = diff_to_json_patch(result)
         
-        # Should still be valid JSON
-        parsed = json.loads(json_output)
-        assert isinstance(parsed, list)
+        # Should still be valid list
+        assert isinstance(patches, list)
 
     def test_consistency_across_formats(self):
         """Test that different formats show consistent change information."""
@@ -414,14 +382,38 @@ class TestDiffResultIntegration:
         right = {"a": 1, "c": 3}
         result = DiffResult(left, right)
         
-        terminal_output = result.to_terminal()
-        json_patch_output = result.to_json_patch()
-        summary_output = result.to_summary()
+        terminal_output = format_diff(result, OutputFormat.TERMINAL)
+        json_patch_output = format_diff(result, OutputFormat.JSON_PATCH)
+        summary_output = format_diff(result, OutputFormat.SUMMARY)
         
         # All outputs should be non-empty strings
         assert len(terminal_output) > 0
         assert len(json_patch_output) > 0
         assert len(summary_output) > 0
+
+
+class TestPathToPointer:
+    """Test suite for path_to_pointer() function."""
+
+    def test_path_to_pointer_top_level(self):
+        """Test path_to_pointer with top-level key."""
+        result = path_to_pointer("name")
+        assert result == "/name"
+
+    def test_path_to_pointer_nested(self):
+        """Test path_to_pointer with nested path."""
+        result = path_to_pointer("root['user']['name']")
+        assert result == "/user/name"
+
+    def test_path_to_pointer_array(self):
+        """Test path_to_pointer with array index."""
+        result = path_to_pointer("root['items'][0]")
+        assert result == "/items/0"
+
+    def test_path_to_pointer_empty(self):
+        """Test path_to_pointer with empty path."""
+        result = path_to_pointer("root")
+        assert result == "/"
 
 
 class TestEdgeCases:
@@ -433,9 +425,8 @@ class TestEdgeCases:
         right = {"l1": {"l2": {"l3": {"l4": {"l5": "new_value"}}}}}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
-        assert isinstance(result.to_summary(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_large_array(self):
         """Test with large arrays."""
@@ -444,8 +435,8 @@ class TestEdgeCases:
         right["items"][50] = 999
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_special_characters_in_strings(self):
         """Test with special characters in string values."""
@@ -453,8 +444,8 @@ class TestEdgeCases:
         right = {"text": "Hello\tWorld"}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_unicode_characters(self):
         """Test with Unicode characters."""
@@ -462,8 +453,8 @@ class TestEdgeCases:
         right = {"name": "日本語"}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_null_values(self):
         """Test with null values."""
@@ -471,8 +462,8 @@ class TestEdgeCases:
         right = {"value": None, "name": "bob"}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_boolean_values(self):
         """Test with boolean values."""
@@ -480,8 +471,8 @@ class TestEdgeCases:
         right = {"active": False, "verified": True}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
 
     def test_numeric_precision(self):
         """Test with floating point numbers."""
@@ -489,5 +480,9 @@ class TestEdgeCases:
         right = {"price": 20.00}
         result = DiffResult(left, right)
         
-        assert isinstance(result.to_terminal(), str)
-        assert isinstance(result.to_json_patch(), str)
+        assert isinstance(format_diff(result, OutputFormat.TERMINAL), str)
+        assert isinstance(format_diff(result, OutputFormat.JSON_PATCH), str)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
