@@ -9,6 +9,7 @@ result = subprocess.run(
     capture_output=True,
     text=True
 )
-print(result.stdout)
-print(result.stderr)
-sys.exit(result.returncode)
+print(result.stdout[-8000:] if len(result.stdout) > 8000 else result.stdout)
+if result.stderr:
+    print(result.stderr[-2000:] if len(result.stderr) > 2000 else result.stderr)
+print("\n=== EXIT CODE:", result.returncode, "===")
