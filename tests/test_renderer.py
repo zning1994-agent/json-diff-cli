@@ -44,6 +44,20 @@ class TestDiffTheme:
         assert theme.PATH_COLOR == "yellow"
 
 
+class TestChangeType:
+    """Tests for ChangeType enum."""
+    
+    def test_change_type_values(self):
+        """Test ChangeType enum values."""
+        assert ChangeType.ADDED.value == "added"
+        assert ChangeType.REMOVED.value == "removed"
+        assert ChangeType.CHANGED.value == "changed"
+    
+    def test_change_type_count(self):
+        """Test ChangeType has expected number of values."""
+        assert len(ChangeType) == 3
+
+
 class TestDiffRenderer:
     """Tests for DiffRenderer class."""
     
@@ -178,6 +192,19 @@ class TestDiffRenderer:
 class TestRenderDiffFunction:
     """Tests for module-level render_diff function."""
     
+    def test_render_diff_returns_string(self):
+        """Test render_diff returns a string."""
+        diff_result = DiffResult(
+            left_data={"key": "value"},
+            right_data={"key": "new_value"},
+            left_path="left.json",
+            right_path="right.json"
+        )
+        
+        output = render_diff(diff_result)
+        assert isinstance(output, str)
+        assert len(output) > 0
+    
     def test_render_diff_no_error(self):
         """Test render_diff doesn't raise exceptions."""
         diff_result = DiffResult(
@@ -190,8 +217,8 @@ class TestRenderDiffFunction:
         # Should not raise
         render_diff(diff_result)
     
-    def test_render_diff_with_kwargs(self):
-        """Test render_diff passes kwargs correctly."""
+    def test_render_diff_with_console_kwarg(self):
+        """Test render_diff passes console kwarg correctly."""
         diff_result = DiffResult(
             left_data={"name": "test"},
             right_data={"name": "test"},
@@ -201,6 +228,42 @@ class TestRenderDiffFunction:
         
         console = Console(file=StringIO())
         render_diff(diff_result, console=console, show_values=False)
+    
+    def test_render_diff_no_changes(self):
+        """Test render_diff with no differences."""
+        diff_result = DiffResult(
+            left_data={"name": "test"},
+            right_data={"name": "test"},
+            left_path="left.json",
+            right_path="right.json"
+        )
+        
+        output = render_diff(diff_result)
+        assert isinstance(output, str)
+    
+    def test_render_diff_with_additions(self):
+        """Test render_diff with additions."""
+        diff_result = DiffResult(
+            left_data={"existing": "value"},
+            right_data={"existing": "value", "new": "added"},
+            left_path="left.json",
+            right_path="right.json"
+        )
+        
+        output = render_diff(diff_result)
+        assert "new" in output or "+" in output
+    
+    def test_render_diff_with_modifications(self):
+        """Test render_diff with modifications."""
+        diff_result = DiffResult(
+            left_data={"name": "alice"},
+            right_data={"name": "bob"},
+            left_path="left.json",
+            right_path="right.json"
+        )
+        
+        output = render_diff(diff_result)
+        assert "name" in output
 
 
 class TestRenderTreeFunction:
@@ -218,11 +281,23 @@ class TestRenderTreeFunction:
         # Should not raise
         render_tree(diff_result)
     
-    def test_render_tree_with_kwargs(self):
-        """Test render_tree passes kwargs correctly."""
+    def test_render_tree_with_console_kwarg(self):
+        """Test render_tree passes console kwarg correctly."""
         diff_result = DiffResult(
             left_data={},
             right_data={},
+            left_path="left.json",
+            right_path="right.json"
+        )
+        
+        console = Console(file=StringIO())
+        render_tree(diff_result, console=console)
+    
+    def test_render_tree_no_changes(self):
+        """Test render_tree with no differences."""
+        diff_result = DiffResult(
+            left_data={"name": "test"},
+            right_data={"name": "test"},
             left_path="left.json",
             right_path="right.json"
         )
