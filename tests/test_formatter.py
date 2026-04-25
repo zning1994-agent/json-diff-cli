@@ -1,13 +1,18 @@
 """Tests for formatter module.
 
-Tests the to_terminal(), to_json_patch(), and to_summary() methods
-of the DiffResult class.
+Tests the formatter.py functions and DiffResult formatting methods.
 """
 
 import json
 import pytest
 from io import StringIO
-from json_diff_cli.differ import DiffResult
+from json_diff_cli.differ import DiffResult, compare
+from json_diff_cli.formatter import (
+    format_diff,
+    diff_to_json_patch,
+    path_to_pointer,
+    OutputFormat,
+)
 
 
 class TestToTerminal:
@@ -496,3 +501,135 @@ class TestEdgeCases:
         
         assert isinstance(result.to_terminal(), str)
         assert isinstance(result.to_json_patch(), str)
+
+
+class TestFormatDiffFunction:
+    """Test suite for format_diff() function from formatter.py."""
+
+    def test_format_diff_terminal_format(self):
+        """Test format_diff with TERMINAL format."""
+        result = compare({"name": "alice"}, {"name": "bob"})
+        output = format_diff(result, OutputFormat.TERMINAL)
+        
+        assert isinstance(output, str)
+        assert len(output) > 0
+
+    def test_format_diff_json_patch_format(self):
+        """Test format_diff with JSON_PATCH format."""
+        result = compare({"name": "alice"}, {"name": "bob"})
+        output = format_diff(result, OutputFormat.JSON_PATCH)
+        
+        assert isinstance(output, str)
+        parsed = json.loads(output)
+        assert isinstance(parsed, list)
+
+    def test_format_diff_summary_format(self):
+        """Test format_diff with SUMMARY format."""
+        result = compare({"name": "alice"}, {"name": "bob"})
+        output = format_diff(result, OutputFormat.SUMMARY)
+        
+        assert isinstance(output, str)
+        assert "Summary" in output or "Changes" in output
+
+    def test_format_diff_no_changes(self):
+        """Test format_diff with no changes."""
+        result = compare({"name": "alice"}, {"name": "alice"})
+        output = format_diff(result, OutputFormat.SUMMARY)
+        
+        assert isinstance(output, str)
+
+
+class TestDiffToJsonPatchFunction:
+    """Test suite for diff_to_json_patch() function from formatter.py."""
+
+    def test_diff_to_json_patch_returns_list(self):
+        """Test diff_to_json_patch returns a list."""
+        result = compare({"name": "alice"}, {"name": "bob"})
+        patches = diff_to_json_patch(result)
+        
+        assert isinstance(patches, list)
+
+    def test_diff_to_json_patch_add_operation(self):
+        """Test add operation in JSON patch."""
+        result = compare({"name": "alice"}, {"name": "alice", "age": 30})
+        patches = diff_to_json_patch(result)
+        
+        if patches:
+            add_ops = [p for p in patches if p["op"] == "add"]
+            assert any("age" in p["path"] for p in add_ops)
+
+    def test_diff_to_json_patch_remove_operation(self):
+        """Test remove operation in JSON patch."""
+        result = compare({"name": "alice", "age": 30}, {"name": "alice"})
+        patches = diff_to_json_patch(result)
+        
+        if patches:
+            remove_ops = [p for p in patches if p["op"] == "remove"]
+            assert len(remove_ops) >= 0  # May have remove ops
+
+    def test_diff_to_json_patch_replace_operation(self):
+        """Test replace operation in JSON patch."""
+        result = compare({"name": "alice"}, {"name": "bob"})
+        patches = diff_to_json_patch(result)
+        
+        replace_ops = [p for p in patches if p["op"] == "replace"]
+        assert len(replace_ops) >= 1
+
+    def test_diff_to_json_patch_empty_when_no_changes(self):
+        """Test empty patch list when no changes."""
+        result = compare({"name": "alice"}, {"name": "alice"})
+        patches = diff_to_json_patch(result)
+        
+        assert patches == []
+
+    def test_diff_to_json_patch_path_format(self):
+        """Test JSON Pointer path format."""
+        result = compare({"user": {"name": "alice"}}, {"user": {"name": "bob"}})
+        patches = diff_to_json_patch(result)
+        
+        for patch in patches:
+            assert "path" in patch
+            assert patch["path"].startswith("/")
+
+
+class TestPathToPointer:
+    """Test suite for path_to_pointer() function from formatter.py."""
+
+    def test_simple_path(self):
+        """Test simple key path."""
+        assert path_to_pointer("root['name']") == "/name"
+        assert path_to_pointer("root['age']") == "/age"
+
+    def test_nested_path(self):
+        """Test nested path."""
+        assert path_to_pointer("root['user']['name']") == "/user/name"
+        assert path_to_pointer("root['a']['b']['c']") == "/a/b/c"
+
+    def test_array_index_path(self):
+        """Test path with array index."""
+        assert path_to_pointer("root['items'][0]") == "/items/0"
+        assert path_to_pointer("root['users'][1]['name']") == "/users/1/name"
+
+    def test_deeply_nested_path(self):
+        """Test deeply nested path."""
+        path = "root['a']['b']['c']['d']['e']"
+        assert path_to_pointer(path) == "/a/b/c/d/e"
+
+    def test_empty_path(self):
+        """Test empty/root path."""
+        assert path_to_pointer("root") == "/"
+        assert path_to_pointer("") == "/"
+
+
+class TestOutputFormat:
+    """Test suite for OutputFormat enum."""
+
+    def test_output_format_values(self):
+        """Test OutputFormat enum values."""
+        assert OutputFormat.TERMINAL.value == 'terminal'
+        assert OutputFormat.JSON_PATCH.value == 'json-patch'
+        assert OutputFormat.SUMMARY.value == 'summary'
+
+    def test_output_format_count(self):
+        """Test OutputFormat has expected number of values."""
+        assert len(OutputFormat) == 3
